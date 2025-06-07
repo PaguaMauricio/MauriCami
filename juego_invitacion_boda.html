@@ -276,9 +276,14 @@
         const archY = groundY - archHeight;
         ctx.drawImage(assets.arch, archX, archY, archWidth, archHeight);
 
-        const rockX = princess.x - ROCK_WIDTH/2;
+        const rockWidth = assets.rock.naturalWidth;
+        const rockHeight = assets.rock.naturalHeight;
+        const scale = (height - groundY) / rockHeight;
+        const scaledRockWidth = rockWidth * scale;
+        
+        const rockX = archX;
         const rockY = groundY;
-        ctx.drawImage(assets.rock, rockX, rockY, ROCK_WIDTH, ROCK_HEIGHT);
+        ctx.drawImage(assets.rock, rockX, rockY, scaledRockWidth, height - groundY);
       }
     }
 

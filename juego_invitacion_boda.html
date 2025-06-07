@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invitación Boda - Mini Juego</title>
+  <style>
+    /* Estilos globales y reseteo */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      overflow: hidden; /* Evita barras de desplazamiento */
+      background: '#f0f0f0';
+      font-family: 'Press Start 2P', cursive; /* Fuente pixel art */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    /* Estilos del Canvas del juego */
+    canvas {
+      display: block;
+      margin: auto;
+      background: linear-gradient(to bottom, #87CEEB, #d0e7f9); /* Fondo degradado del cielo */
+      border-radius: 10px; /* Bordes redondeados para el canvas */
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4); /* Sombra para el canvas */
+      max-width: 100%; /* Asegura que el canvas no desborde en pantallas pequeñas */
+      max-height: 100%;
+    }
+    /* Estilos del botón de invitación */
+    #linkInvitacion {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%); /* Centra el botón */
+      padding: 20px 40px;
+      background: #ff4081; /* Color rosa vibrante */
+      color: white;
+      font-size: 20px;
+      border-radius: 10px;
+      display: none; /* Oculto por defecto */
+      text-decoration: none;
+      font-weight: bold;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* Sombra sutil */
+      transition: background 0.3s ease, transform 0.2s ease; /* Transiciones suaves */
+      z-index: 100; /* Asegura que esté por encima del canvas */
+      cursor: pointer;
+    }
+    #linkInvitacion:hover {
+      background: #e03370; /* Color más oscuro al pasar el ratón */
+      transform: translate(-50%, -50%) scale(1.05); /* Pequeño efecto de escala */
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <a id="linkInvitacion" href="invitacion.html">💌 Nos ayudaste a encontrarnos, gracias!, Tenemos una invitación para vos! 💌</a>
+
+  <script>
+    // Definición de URLs de sprites.
+    // He actualizado los corazones para que sean distintos.
+    const SPRITES = {
+      knight: 'hombre2.png',    // Caballero animado o más detallado
+      scooter: 'scooter.png',   // Imagen del scooter
+      princess: 'women1.png',  // Princesa más detallada
+      obstacle: 'montana1.png',  // Obstáculo tipo roca o arbusto
+      cloud: 'nube1.png',    // Nube
+      heart: 'corazonvacio.png',    // Corazón vacío (contorno pixel art)
+      heartFull: 'corazon1.png', // Corazón lleno (pixel art)
+      backgroundFar: 'planeta.png', // Fondo lejano (montañas, etc)
+      ground: 'suelo.png', // Textura del suelo
+      arch: 'arco.png', // Arco de boda
+      rock: 'roca.png', // Roca decorativa
+    };
+
+    // Constantes del juego para facilitar ajustes
+    const MAX_HEARTS = 4; // Número de obstáculos a superar
+    const GRAVITY = 0.50; // Gravedad reducida para saltos más flotantes
+    const JUMP_VELOCITY = -15; // Fuerza del primer salto
+    const DOUBLE_JUMP_VELOCITY = -13; // Fuerza del segundo salto (ligeramente menor)
+    const GROUND_HEIGHT_RATIO = 0.85; // Proporción de la altura del suelo en el canvas
+    const OBSTACLE_BASE_SPEED = 2.2; // Velocidad inicial de los obstáculos (lenta)
+    const OBSTACLE_SPEED_INCREMENT = 0.30; // Incremento de velocidad por obstáculo superado
+    const BACKGROUND_FAR_SPEED = 0.1; // Velocidad del fondo lejano
+    const GROUND_SPEED = 1.0; // Velocidad del suelo
+    const OBSTACLE_HEIGHT = 60; // Altura fija para todos los obstáculos
+    const OBSTACLE_WIDTH = 60; // Ancho fijo para todos los obstáculos
+    const OBSTACLE_SPAWN_INTERVAL_MIN = 2000; // ms
+    const OBSTACLE_SPAWN_INTERVAL_MAX = 2800; // ms
+    const CLOUD_SPAWN_INTERVAL = 1800; // Intervalo de aparición de nubes en ms
+    const CLOUD_MIN_SPEED = 0.5;
+    const CLOUD_MAX_SPEED = 0.8;
+    const PLAYER_WIDTH = 70;
+    const PLAYER_HEIGHT = 100;
+    const PRINCESS_WIDTH = 100;
+    const PRINCESS_HEIGHT = 100;
+
+    // Variables globales del juego
+    let canvas, ctx, width, height, groundY;
+    let assets = {}; // Objeto para almacenar las imágenes cargadas
+    let assetsLoaded = 0; // Contador de assets cargados
+    let totalAssets = Object.keys(SPRITES).length; // Total de assets a cargar
+    let gameState = 'loading'; // Estados del juego: 'loading', 'playing', 'won', 'lost'
+    let lastObstacleTime = 0; // Tiempo del último obstáculo generado
+    let lastCloudTime = 0; // Tiempo de la última nube generada
+    let obstacles = []; // Array de obstáculos activos
+    let clouds = []; // Array de nubes activas
+    let hearts = []; // No se usa directamente, el progreso se usa para dibujar
+    let progress = 0; // Número de obstáculos superados (equivale a la puntuación)
+    let princessActive = false; // Indica si la princesa ha comenzado a moverse
+    let princess; // Objeto de la princesa
+    let player; // Objeto del jugador
+    let invitationBtn; // Referencia al botón de invitación
+    let nextObstacleInterval = getRandomObstacleInterval();
+    let showFailMessage = false;
+    
+    // Variables para los fondos y el suelo
+    let backgroundFarX = 0;
+    let groundX = 0;
+
+    // Variables para la roca
+    let ROCK_WIDTH;
+    let ROCK_HEIGHT;
+
+    // --- AUDIO ---
+    const AUDIO = {
+      musica: new Audio('tuturu.mp3'), // Música de fondo (ejemplo)
+      salto: new Audio('salto.mp3'),  // Sonido de salto (ejemplo)
+      fallo: new Audio('fallo.mp3'),  // Sonido de fallo (puedes cambiarlo)
+      victoria: new Audio('tarjetita.mp3') // Sonido de victoria (puedes cambiarlo)
+    };
+    AUDIO.musica.loop = true; // Para que la música de fondo se repita
+    AUDIO.musica.volume = 0.3; // Volumen bajo para la música
+    AUDIO.salto.volume = 0.3;
+    AUDIO.fallo.volume = 0.3;
+    AUDIO.victoria.volume = 0.5;
+
+    // Función para ajustar el tamaño del canvas al redimensionar la ventana
+    function resizeCanvas() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      groundY = Math.floor(height * GROUND_HEIGHT_RATIO); // Recalcula la posición del suelo
+      
+      // Actualizar dimensiones de la roca
+      ROCK_WIDTH = width;
+      ROCK_HEIGHT = height - groundY;
+      
+      if (player) player.y = groundY - player.height; // Reposiciona al jugador
+      if (princess) princess.y = groundY - princess.height; // Reposiciona a la princesa
+    }
+    window.addEventListener('resize', resizeCanvas); // Escucha eventos de redimensionamiento
+
+    // Función para cargar todos los sprites del juego
+    function loadAssets() {
+      assetsLoaded = 0;
+      for (let key in SPRITES) {
+        const img = new Image();
+        img.src = SPRITES[key];
+        img.onload = () => {
+          assetsLoaded++;
+          console.log(`Sprite cargado: ${SPRITES[key]}`);
+          if (assetsLoaded === totalAssets) {
+            // Espera un poco antes de iniciar para asegurar que todo se renderice bien
+            setTimeout(startGame, 300);
+          }
+        };
+        // Manejo de errores en caso de que una imagen no cargue
+        img.onerror = () => {
+          console.error(`Error al cargar la imagen: ${SPRITES[key]}`);
+          alert(`No se pudo cargar la imagen: ${SPRITES[key]}. Verifica la ruta o el nombre del archivo.`);
+        };
+        assets[key] = img; // Almacena la imagen en el objeto assets
+      }
+    }
+
+    // Función para iniciar o reiniciar el juego
+    function startGame() {
+      gameState = 'playing'; // Establece el estado del juego a 'jugando'
+      obstacles = []; // Limpia los arrays de elementos
+      clouds = [];
+      progress = 0; // Reinicia el progreso
+      princessActive = false; // La princesa no está activa al inicio
+      lastObstacleTime = 0; // Reinicia los temporizadores de spawn
+      lastCloudTime = 0;
+
+      // Inicialización del objeto jugador
+      player = {
+        x: 80,
+        y: groundY - PLAYER_HEIGHT,
+        width: PLAYER_WIDTH,
+        height: PLAYER_HEIGHT,
+        vy: 0, // Velocidad vertical
+        jumps: 0, // Saltos realizados en el aire
+        maxJumps: 2, // Número máximo de saltos permitidos (1 inicial + 1 doble)
+        onGround: true, // Si el jugador está en el suelo
+        sprite: assets.knight, // Sprite del caballero
+      };
+
+      // Inicialización del objeto princesa
+      princess = {
+        x: width + 100, // Fuera de pantalla a la derecha
+        y: groundY - PRINCESS_HEIGHT,
+        width: PRINCESS_WIDTH,
+        height: PRINCESS_HEIGHT,
+        sprite: assets.princess, // Sprite de la princesa
+        active: false, // Si la princesa se está moviendo
+        speed: 0, // Velocidad de la princesa
+      };
+
+      invitationBtn.style.display = 'none'; // Asegura que el botón de invitación esté oculto
+      
+      // Asegurar que la música comience
+      if (AUDIO.musica.paused) {
+        AUDIO.musica.currentTime = 0;
+        AUDIO.musica.play().catch(error => {
+          console.log("La reproducción automática fue bloqueada. Se reproducirá con la primera interacción del usuario.");
+        });
+      }
+      
+      requestAnimationFrame(gameLoop); // Inicia el bucle principal del juego
+    }
+
+    // Funciones de dibujo ---------------------------------------------------
+    function drawBackground() {
+      // Degradado cielo
+      let grad = ctx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, '#e0f7fa'); /* Azul claro */
+      grad.addColorStop(1, '#87ceeb'); /* Azul cielo */
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      // Dibuja el fondo lejano (montañas)
+      ctx.save();
+      ctx.translate(backgroundFarX, 0);
+      // Dibuja el fondo lejano dos veces para el efecto de scroll infinito
+      ctx.drawImage(assets.backgroundFar, 0, 0, width, height);
+      ctx.drawImage(assets.backgroundFar, width, 0, width, height);
+      ctx.restore();
+
+      // Dibuja el suelo con scroll infinito
+      ctx.save();
+      ctx.translate(groundX, 0);
+      // Dibuja el suelo dos veces para el efecto de scroll infinito
+      ctx.drawImage(assets.ground, 0, groundY, width, height - groundY);
+      ctx.drawImage(assets.ground, width, groundY, width, height - groundY);
+      ctx.restore();
+    }
+
+    function drawClouds() {
+      for (let cloud of clouds) {
+        ctx.drawImage(assets.cloud, cloud.x, cloud.y, cloud.width, cloud.height);
+      }
+    }
+
+    function drawObstacles() {
+      for (let obs of obstacles) {
+        ctx.drawImage(assets.obstacle, obs.x, obs.y, obs.width, obs.height);
+      }
+    }
+
+    function drawPlayer() {
+      if (player.onGround) {
+        // Dibujar el scooter cuando está en el suelo
+        ctx.drawImage(assets.scooter, player.x, player.y, player.width, player.height);
+      } else {
+        // Dibujar el caballero cuando está saltando
+        ctx.drawImage(player.sprite, player.x, player.y, player.width, player.height);
+      }
+    }
+
+    function drawPrincess() {
+      if (princessActive) {
+        // Dibujar la princesa primero
+        ctx.drawImage(princess.sprite, princess.x, princess.y, princess.width, princess.height);
+        
+        // Dibujar el arco de boda detrás de la princesa
+        const archWidth = princess.width * 2.5;
+        const archHeight = princess.height * 2;
+        const archX = princess.x - (archWidth - princess.width) / 2;
+        const archY = groundY - archHeight; // Posicionar el arco justo sobre el suelo
+        ctx.drawImage(assets.arch, archX, archY, archWidth, archHeight);
+
+        // Dibujar la roca debajo del arco
+        const rockX = princess.x - ROCK_WIDTH/2;
+        const rockY = groundY;
+        ctx.drawImage(assets.rock, rockX, rockY, ROCK_WIDTH, ROCK_HEIGHT);
+      }
+    }
+
+    function drawHearts() {
+      for (let i = 0; i < MAX_HEARTS; i++) {
+        let img = i < progress ? assets.heartFull : assets.heart; // Corazón lleno si el progreso lo alcanza, vacío si no
+        ctx.drawImage(img, 16 + i * 36, 16, 32, 32); /* Posición y tamaño de los corazones */
+      }
+    }
+
+    function drawScore() {
+      ctx.font = "18px 'Press Start 2P', cursive"; /* Fuente pixel art para la puntuación */
+      ctx.fillStyle = "#fff"; /* Color blanco */
+      ctx.strokeStyle = "#000"; /* Borde negro para mayor visibilidad */
+      ctx.lineWidth = 3;
+      let text = `Obstáculos superados: ${progress}`;
+      ctx.strokeText(text, 16, 70); /* Dibuja el borde del texto */
+      ctx.fillText(text, 16, 70); /* Dibuja el texto */
+    }
+
+    function drawFailMessage() {
+      ctx.save();
+      ctx.font = "bold 14px 'Press Start 2P', cursive";
+      ctx.fillStyle = "#ff4081";
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 8;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Calcular el ancho máximo disponible (80% del ancho de la pantalla)
+      const maxWidth = width * 0.8;
+      
+      // Dividir el mensaje en palabras
+      const palabras = "¡Fallaste, a intentarlo de nuevo!".split(' ');
+      let lineas = [];
+      let lineaActual = '';
+      
+      // Crear líneas que no excedan el ancho máximo
+      palabras.forEach(palabra => {
+        const testLine = lineaActual + palabra + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && lineaActual !== '') {
+          lineas.push(lineaActual);
+          lineaActual = palabra + ' ';
+        } else {
+          lineaActual = testLine;
+        }
+      });
+      lineas.push(lineaActual);
+
+      // Dibujar cada línea centrada
+      lineas.forEach((linea, index) => {
+        const y = height / 2 - 40 + (index * 40);
+        ctx.strokeText(linea, width / 2, y);
+        ctx.fillText(linea, width / 2, y);
+      });
+
+      // Dibujar el submensaje
+      ctx.font = "10px 'Press Start 2P', cursive";
+      const submensaje = "Haz clic o pulsa la pantalla para reiniciar";
+      
+      // Dividir el submensaje en palabras
+      const palabrasSub = submensaje.split(' ');
+      let lineasSub = [];
+      let lineaActualSub = '';
+      
+      // Crear líneas que no excedan el ancho máximo
+      palabrasSub.forEach(palabra => {
+        const testLine = lineaActualSub + palabra + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && lineaActualSub !== '') {
+          lineasSub.push(lineaActualSub);
+          lineaActualSub = palabra + ' ';
+        } else {
+          lineaActualSub = testLine;
+        }
+      });
+      lineasSub.push(lineaActualSub);
+
+      // Dibujar cada línea del submensaje centrada
+      lineasSub.forEach((linea, index) => {
+        const y = height / 2 + 20 + (index * 20);
+        ctx.strokeText(linea, width / 2, y);
+        ctx.fillText(linea, width / 2, y);
+      });
+      
+      ctx.restore();
+    }
+
+    // Funciones de actualización y lógica del juego ---------------------------
+    function spawnObstacle() {
+      obstacles.push({
+        x: width + 10, /* Aparece justo fuera del borde derecho */
+        y: groundY - OBSTACLE_HEIGHT,
+        width: OBSTACLE_WIDTH,
+        height: OBSTACLE_HEIGHT,
+        speed: OBSTACLE_BASE_SPEED + progress * OBSTACLE_SPEED_INCREMENT, /* La velocidad aumenta con el progreso */
+        passed: false, /* Para saber si el jugador ya lo ha superado */
+      });
+    }
+
+    function spawnCloud() {
+      let cloudWidth = 180 + Math.random() * 60;
+      let cloudHeight = 180 + Math.random() * 60;
+      let speed = CLOUD_MIN_SPEED + Math.random() * (CLOUD_MAX_SPEED - CLOUD_MIN_SPEED);
+      clouds.push({
+        x: width + 10,
+        y: Math.random() * (groundY / 2), /* Aparece en la mitad superior del canvas */
+        width: cloudWidth,
+        height: cloudHeight,
+        speed: speed,
+      });
+    }
+
+    function updateClouds(dt) {
+      for (let cloud of clouds) {
+        cloud.x -= cloud.speed * dt; /* Mueve la nube */
+      }
+      clouds = clouds.filter(cloud => cloud.x + cloud.width > 0); /* Elimina nubes fuera de pantalla */
+      if (Date.now() - lastCloudTime > CLOUD_SPAWN_INTERVAL) {
+        spawnCloud();
+        lastCloudTime = Date.now();
+      }
+    }
+
+    function updateObstacles(dt) {
+      for (let obs of obstacles) {
+        obs.x -= obs.speed * dt; /* Mueve el obstáculo */
+        // Si el obstáculo ha pasado al jugador y aún no se ha contado
+        if (!obs.passed && obs.x + obs.width < player.x) {
+          obs.passed = true;
+          progress++; /* Incrementa el progreso */
+          // Si se ha alcanzado el progreso máximo y la princesa no está activa, actívala
+          if (progress >= 5 && !princessActive) {
+            princessActive = true;
+            princess.active = true;
+            princess.speed = obstacles.length > 0 ? obstacles[0].speed * 0.8 : OBSTACLE_BASE_SPEED * 0.8;
+          }
+        }
+      }
+      obstacles = obstacles.filter(obs => obs.x + obs.width > 0); /* Elimina obstáculos fuera de pantalla */
+      // Genera un nuevo obstáculo si es el momento
+      if (!princessActive && Date.now() - lastObstacleTime > nextObstacleInterval && obstacles.length < 5) {
+        spawnObstacle();
+        lastObstacleTime = Date.now();
+        nextObstacleInterval = getRandomObstacleInterval();
+      }
+    }
+
+    function updatePrincess(dt) {
+      if (princessActive) {
+        princess.x -= princess.speed * dt; /* Mueve la princesa si está activa */
+      }
+    }
+
+    function updatePlayer(dt) {
+      player.vy += GRAVITY * dt; /* Aplica la gravedad a la velocidad vertical */
+      player.y += player.vy * dt; /* Actualiza la posición vertical */
+
+      // Si el jugador toca el suelo
+      if (player.y + player.height >= groundY) {
+        player.y = groundY - player.height; /* Lo coloca exactamente en el suelo */
+        player.vy = 0; /* Detiene la caída */
+        player.jumps = 0; /* Reinicia el contador de saltos */
+        player.onGround = true; /* Marca que está en el suelo */
+      } else {
+        player.onGround = false; /* Si no está en el suelo, está en el aire */
+      }
+    }
+
+    function checkCollisions() {
+      // Colisión con obstáculos
+      for (let obs of obstacles) {
+        // Ajustar el hitbox del obstáculo (hacerlo más pequeño que el sprite)
+        const hitboxMargin = 8; // Margen para reducir el hitbox
+        const obstacleHitbox = {
+          x: obs.x + hitboxMargin,
+          y: obs.y + hitboxMargin,
+          width: obs.width - (hitboxMargin * 2),
+          height: obs.height - (hitboxMargin * 2)
+        };
+        
+        if (rectsCollide(player, obstacleHitbox)) {
+          gameOver(); /* Si colisiona, termina el juego */
+          return;
+        }
+      }
+      // Colisión con la princesa
+      if (princessActive && rectsCollide(player, princess)) {
+        winGame(); /* Si colisiona con la princesa, gana el juego */
+      }
+      // Si el jugador alcanza o supera la posición de la princesa (por la izquierda)
+      if (princessActive && player.x + player.width >= princess.x) {
+        winGame();
+      }
+    }
+
+    // Función auxiliar para detectar colisiones entre dos rectángulos
+    function rectsCollide(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+      );
+    }
+
+    // Función para manejar el fin del juego (derrota)
+    function gameOver() {
+      gameState = 'lost';
+      AUDIO.musica.pause();
+      AUDIO.fallo.currentTime = 0;
+      AUDIO.fallo.play();
+      showFailMessage = true;
+      // No reinicia el juego automáticamente, espera interacción del usuario
+    }
+
+    // Función para manejar el fin del juego (victoria)
+    function winGame() {
+      gameState = 'won';
+      AUDIO.musica.pause();
+      AUDIO.victoria.currentTime = 0;
+      AUDIO.victoria.play();
+      invitationBtn.style.display = 'block'; /* Muestra el botón de invitación */
+    }
+
+    // Función para el salto del jugador (incluye doble salto)
+    function jump() {
+      if (gameState !== 'playing') return; /* Solo permite saltar si el juego está activo */
+
+      // Permite el salto si está en el suelo O si le quedan saltos en el aire
+      if (player.onGround || player.jumps < player.maxJumps) {
+        // Aplica la fuerza del salto (diferente para el primer y segundo salto)
+        player.vy = player.jumps === 0 ? JUMP_VELOCITY : DOUBLE_JUMP_VELOCITY;
+        player.jumps++; /* Incrementa el contador de saltos */
+        player.onGround = false; /* El jugador ya no está en el suelo */
+        AUDIO.salto.currentTime = 0;
+        AUDIO.salto.play();
+      }
+    }
+
+    // Manejo de entrada del usuario (teclado y ratón/tactil)
+    function handleInput(e) {
+      if (e.type === 'keydown') {
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+          jump();
+        }
+      } else if (e.type === 'mousedown' || e.type === 'touchstart') {
+        jump();
+      }
+    }
+
+    function handleRestart(e) {
+      if (gameState === 'lost' && showFailMessage) {
+        showFailMessage = false;
+        startGame();
+      }
+    }
+
+    function updateBackgrounds(dt) {
+      // Actualiza las posiciones de los fondos y el suelo
+      backgroundFarX -= BACKGROUND_FAR_SPEED * dt;
+
+      groundX -= GROUND_SPEED * dt;
+
+      // Reinicia las posiciones cuando se sale de la pantalla
+      if (backgroundFarX <= -width) backgroundFarX = 0;
+
+      if (groundX <= -width) groundX = 0;
+    }
+
+    // Bucle principal del juego
+    function gameLoop() {
+      if (gameState === 'playing') {
+        ctx.clearRect(0, 0, width, height); /* Limpia el canvas */
+
+        updateBackgrounds(1); /* Actualiza las posiciones de los fondos */
+        drawBackground();
+        updateClouds(1); /* Actualiza y dibuja nubes */
+        drawClouds();
+        updateObstacles(1); /* Actualiza y dibuja obstáculos */
+        drawObstacles();
+        updatePrincess(1); /* Actualiza y dibuja princesa */
+        drawPrincess();
+        updatePlayer(1); /* Actualiza y dibuja jugador */
+        drawPlayer();
+        drawHearts(); /* Dibuja los corazones de progreso */
+        drawScore(); /* Dibuja la puntuación */
+        checkCollisions(); /* Verifica colisiones */
+
+        requestAnimationFrame(gameLoop); /* Solicita el siguiente frame */
+      } else if (gameState === 'won') {
+        // Si el juego ha terminado (ganado), dibuja los elementos finales una última vez
+        drawBackground();
+        drawClouds();
+        drawObstacles();
+        drawPrincess();
+        drawPlayer();
+        drawHearts();
+        drawScore();
+      } else if (gameState === 'lost') {
+        ctx.clearRect(0, 0, width, height);
+        drawBackground();
+        drawClouds();
+        drawObstacles();
+        drawPrincess();
+        drawPlayer();
+        drawHearts();
+        drawScore();
+        if (showFailMessage) drawFailMessage();
+        // No requestAnimationFrame aquí, se reanuda al reiniciar
+      }
+    }
+
+    function getRandomObstacleInterval() {
+      return OBSTACLE_SPAWN_INTERVAL_MIN + Math.random() * (OBSTACLE_SPAWN_INTERVAL_MAX - OBSTACLE_SPAWN_INTERVAL_MIN);
+    }
+
+    // Inicialización del juego cuando la ventana carga
+    window.onload = () => {
+      canvas = document.getElementById('gameCanvas');
+      ctx = canvas.getContext('2d');
+      invitationBtn = document.getElementById('linkInvitacion');
+
+      resizeCanvas(); // Ajusta el tamaño inicial del canvas
+      loadAssets(); // Carga todos los sprites
+      
+      // Añade los listeners de eventos para la entrada del usuario
+      window.addEventListener('keydown', handleInput);
+      window.addEventListener('mousedown', handleInput);
+      window.addEventListener('touchstart', handleInput); // Para dispositivos táctiles
+      window.addEventListener('keydown', handleRestart);
+      window.addEventListener('mousedown', handleRestart);
+      window.addEventListener('touchstart', handleRestart);
+
+      // Función para iniciar el audio con la primera interacción
+      function startAudio() {
+        AUDIO.musica.play().catch(error => {
+          console.log("La reproducción automática fue bloqueada. Se reproducirá con la primera interacción del usuario.");
+        });
+        // Remover los event listeners después de la primera interacción
+        window.removeEventListener('mousedown', startAudio);
+        window.removeEventListener('touchstart', startAudio);
+        window.removeEventListener('keydown', startAudio);
+      }
+
+      // Añadir event listeners para iniciar el audio
+      window.addEventListener('mousedown', startAudio);
+      window.addEventListener('touchstart', startAudio);
+      window.addEventListener('keydown', startAudio);
+    };
+  </script>
+</body>
+</html>

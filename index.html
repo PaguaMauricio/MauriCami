@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitación Boda - Introducción</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to bottom, #87CEEB, #d0e7f9);
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            text-align: center;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 20px;
+            max-width: 600px;
+            margin: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+
+        /* Estilo del globo de conversación */
+        .container::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 20px 20px 0;
+            border-style: solid;
+            border-color: white transparent transparent;
+        }
+
+        h1 {
+            color: #ff4081;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        p {
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            font-size: 1rem;
+            color: #333;
+        }
+
+        .btn {
+            background-color: #ff4081;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+            transition: transform 0.2s, background-color 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            background-color: #e03370;
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            p {
+                font-size: 0.8rem;
+            }
+            .btn {
+                font-size: 1rem;
+                padding: 0.8rem 1.6rem;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>¡Bienvenido a nuestra historia!</h1>
+        <p>Ayuda a nuestro caballero a superar obstáculos y reunirse con su princesa. 
+           Usa la barra espaciadora o haz clic para saltar. 
+           ¡Cada obstáculo superado te acerca más a tu objetivo!</p>
+        <button class="btn" onclick="iniciarJuego()">¡Jugar!</button>
+    </div>
+
+    <audio id="musicaFondo" loop>
+        <source src="musica_intro.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const musicaFondo = document.getElementById('musicaFondo');
+        musicaFondo.volume = 0.3;
+
+        // Reproducir música cuando el usuario interactúe con la página
+        document.addEventListener('click', function() {
+            musicaFondo.play();
+        }, { once: true });
+
+        function iniciarJuego() {
+            window.location.href = 'juego_invitacion_boda.html';
+        }
+    </script>
+</body>
+</html> 

@@ -229,10 +229,14 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
+      const backgroundWidth = assets.backgroundFar.naturalWidth;
+      const backgroundHeight = assets.backgroundFar.naturalHeight;
+      const scale = height / backgroundHeight;
+
       ctx.save();
       ctx.translate(backgroundFarX, 0);
-      ctx.drawImage(assets.backgroundFar, 0, 0, width, height);
-      ctx.drawImage(assets.backgroundFar, width, 0, width, height);
+      ctx.drawImage(assets.backgroundFar, 0, 0, backgroundWidth * scale, height);
+      ctx.drawImage(assets.backgroundFar, backgroundWidth * scale, 0, backgroundWidth * scale, height);
       ctx.restore();
 
       ctx.save();
@@ -436,7 +440,12 @@
       backgroundFarX -= BACKGROUND_FAR_SPEED * dt;
       groundX -= GROUND_SPEED * dt;
 
-      if (backgroundFarX <= -width) backgroundFarX = 0;
+      const backgroundWidth = assets.backgroundFar.naturalWidth;
+      const backgroundHeight = assets.backgroundFar.naturalHeight;
+      const scale = height / backgroundHeight;
+      const scaledBackgroundWidth = backgroundWidth * scale;
+
+      if (backgroundFarX <= -scaledBackgroundWidth) backgroundFarX = 0;
       if (groundX <= -width) groundX = 0;
     }
 

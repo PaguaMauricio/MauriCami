@@ -239,10 +239,15 @@
       ctx.drawImage(assets.backgroundFar, backgroundWidth * scale, 0, backgroundWidth * scale, height);
       ctx.restore();
 
+      const groundWidth = assets.ground.naturalWidth;
+      const groundHeight = assets.ground.naturalHeight;
+      const groundScale = (height - groundY) / groundHeight;
+      const scaledGroundWidth = groundWidth * groundScale;
+
       ctx.save();
       ctx.translate(groundX, 0);
-      ctx.drawImage(assets.ground, 0, groundY, width, height - groundY);
-      ctx.drawImage(assets.ground, width, groundY, width, height - groundY);
+      ctx.drawImage(assets.ground, 0, groundY, scaledGroundWidth, height - groundY);
+      ctx.drawImage(assets.ground, scaledGroundWidth, groundY, scaledGroundWidth, height - groundY);
       ctx.restore();
     }
 
@@ -450,8 +455,13 @@
       const scale = height / backgroundHeight;
       const scaledBackgroundWidth = backgroundWidth * scale;
 
+      const groundWidth = assets.ground.naturalWidth;
+      const groundHeight = assets.ground.naturalHeight;
+      const groundScale = (height - groundY) / groundHeight;
+      const scaledGroundWidth = groundWidth * groundScale;
+
       if (backgroundFarX <= -scaledBackgroundWidth) backgroundFarX = 0;
-      if (groundX <= -width) groundX = 0;
+      if (groundX <= -scaledGroundWidth) groundX = 0;
     }
 
     function checkCollisions() {

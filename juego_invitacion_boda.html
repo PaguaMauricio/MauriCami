@@ -82,7 +82,7 @@
 
     // Constantes base del juego
     const BASE_SPEED = 60; // Velocidad base para 60 FPS
-    const MAX_HEARTS = 4;
+    const MAX_HEARTS = 6;
     const GROUND_HEIGHT_RATIO = 0.85;
     const OBSTACLE_HEIGHT = 60;
     const OBSTACLE_WIDTH = 60;
@@ -98,12 +98,10 @@
     const GRAVITY = 0.40 * (BASE_SPEED / 60);
     const JUMP_VELOCITY = -16 * (BASE_SPEED / 60);
     const DOUBLE_JUMP_VELOCITY = -13 * (BASE_SPEED / 60);
-    const OBSTACLE_BASE_SPEED = 2.2 * (BASE_SPEED / 60);
-    const OBSTACLE_SPEED_INCREMENT = 0.30 * (BASE_SPEED / 60);
-    const BACKGROUND_FAR_SPEED = 0.1 * (BASE_SPEED / 60);
-    const GROUND_SPEED = 1.0 * (BASE_SPEED / 60);
-    const CLOUD_MIN_SPEED = 0.5 * (BASE_SPEED / 60);
-    const CLOUD_MAX_SPEED = 0.8 * (BASE_SPEED / 60);
+    const BASE_GAME_SPEED = 2.2 * (BASE_SPEED / 60); // Velocidad base inicial
+    const GAME_SPEED_INCREMENT = 0.30 * (BASE_SPEED / 60); // Incremento de velocidad por progreso
+    const CLOUD_MIN_SPEED = BASE_GAME_SPEED * 0.2; // 20% de la velocidad del juego
+    const CLOUD_MAX_SPEED = BASE_GAME_SPEED * 0.3; // 30% de la velocidad del juego
 
     // Variables globales del juego
     let canvas, ctx, width, height, groundY;
@@ -123,6 +121,7 @@
     let nextObstacleInterval = getRandomObstacleInterval();
     let showFailMessage = false;
     let lastFrameTime = 0;
+    let gameX = 0; // Nueva variable para controlar el movimiento unificado
     let backgroundFarX = 0;
     let groundX = 0;
     let ROCK_WIDTH;
@@ -234,7 +233,7 @@
       const scale = height / backgroundHeight;
 
       ctx.save();
-      ctx.translate(backgroundFarX, 0);
+      ctx.translate(gameX * 0.1, 0); // Fondo lejano se mueve más lento
       ctx.drawImage(assets.backgroundFar, 0, 0, backgroundWidth * scale, height);
       ctx.drawImage(assets.backgroundFar, backgroundWidth * scale, 0, backgroundWidth * scale, height);
       ctx.restore();
@@ -245,7 +244,7 @@
       const scaledGroundWidth = groundWidth * groundScale;
 
       ctx.save();
-      ctx.translate(groundX, 0);
+      ctx.translate(gameX, 0);
       ctx.drawImage(assets.ground, 0, groundY, scaledGroundWidth, height - groundY);
       ctx.drawImage(assets.ground, scaledGroundWidth, groundY, scaledGroundWidth, height - groundY);
       ctx.restore();
@@ -286,7 +285,7 @@
         const scale = (height - groundY) / rockHeight;
         const scaledRockWidth = rockWidth * scale;
         
-        const rockX = archX;
+        const rockX = archX - 60;
         const rockY = groundY;
         ctx.drawImage(assets.rock, rockX, rockY, scaledRockWidth, height - groundY);
       }
@@ -371,12 +370,13 @@
 
     // Funciones de actualización
     function spawnObstacle() {
+      // Calculamos la posición inicial del obstáculo basada en la posición actual del juego
+      const initialX = width + 10;
       obstacles.push({
-        x: width + 10,
+        x: initialX,
         y: groundY - OBSTACLE_HEIGHT,
         width: OBSTACLE_WIDTH,
         height: OBSTACLE_HEIGHT,
-        speed: OBSTACLE_BASE_SPEED + progress * OBSTACLE_SPEED_INCREMENT,
         passed: false,
       });
     }
@@ -405,16 +405,20 @@
       }
     }
 
+    function getCurrentGameSpeed() {
+      return BASE_GAME_SPEED + (progress * GAME_SPEED_INCREMENT);
+    }
+
     function updateObstacles(dt) {
       for (let obs of obstacles) {
-        obs.x -= obs.speed * dt;
+        // Los obstáculos se mueven con el suelo
+        obs.x -= getCurrentGameSpeed() * dt;
         if (!obs.passed && obs.x + obs.width < player.x) {
           obs.passed = true;
           progress++;
-          if (progress >= 5 && !princessActive) {
+          if (progress >= MAX_HEARTS && !princessActive) {
             princessActive = true;
             princess.active = true;
-            princess.speed = obstacles.length > 0 ? obstacles[0].speed * 0.8 : OBSTACLE_BASE_SPEED * 0.8;
           }
         }
       }
@@ -428,7 +432,8 @@
 
     function updatePrincess(dt) {
       if (princessActive) {
-        princess.x -= princess.speed * dt;
+        // La princesa se mueve con el suelo
+        princess.x -= getCurrentGameSpeed() * dt;
       }
     }
 
@@ -447,8 +452,7 @@
     }
 
     function updateBackgrounds(dt) {
-      backgroundFarX -= BACKGROUND_FAR_SPEED * dt;
-      groundX -= GROUND_SPEED * dt;
+      gameX -= getCurrentGameSpeed() * dt;
 
       const backgroundWidth = assets.backgroundFar.naturalWidth;
       const backgroundHeight = assets.backgroundFar.naturalHeight;
@@ -460,8 +464,7 @@
       const groundScale = (height - groundY) / groundHeight;
       const scaledGroundWidth = groundWidth * groundScale;
 
-      if (backgroundFarX <= -scaledBackgroundWidth) backgroundFarX = 0;
-      if (groundX <= -scaledGroundWidth) groundX = 0;
+      if (gameX <= -scaledGroundWidth) gameX = 0;
     }
 
     function checkCollisions() {

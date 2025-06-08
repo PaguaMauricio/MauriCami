@@ -4,10 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Video Invitación de Boda</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #000;
+    }
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .video-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+    }
+    video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background: #000;
+    }
+  </style>
 </head>
-<body style="background: #f9f9f9; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh;">
-  <div style="position: relative; width: 100%; max-width: 560px; height: 0; padding-top: 56.25%; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); overflow: hidden; border-radius: 8px; will-change: transform;">
-    <iframe style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0; margin: 0;" src="https://www.youtube.com/embed/SlSIsQSXo9Q" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+<body>
+  <div class="video-container">
+    <video id="videoBoda" controls>
+      <source src="https://paguamauricio.github.io/MauriCamiCasamiento/invitacionBoda.mp4" type="video/mp4">
+      Tu navegador no soporta la reproducción de video.
+    </video>
   </div>
 </body>
 </html> 
